@@ -3,12 +3,9 @@
 
 This method can be used for dealing with time series with missing values, especially for time series with non-fixed time intervals.
 
-
 ### Environment
 * Python 3.6.1
 * PyTorch 0.3.0
-
-
 
 ### Cite
 ```
