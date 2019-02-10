@@ -109,7 +109,7 @@ class GRUD(nn.Module):
         
         self.output_last = output_last
         
-    def step(self, x, h, mask, delta, x_mean):
+    def step(self, x, x_last_obsv, x_mean, h, mask, delta):
         
         batch_size = x.shape[0]
         dim_size = x.shape[1]
@@ -117,14 +117,13 @@ class GRUD(nn.Module):
         delta_x = torch.exp(-torch.max(self.zeros, self.gamma_x_l(delta)))
         delta_h = torch.exp(-torch.max(self.zeros, self.gamma_h_l(delta)))
         
-        x = mask * x + (1 - mask) * ( delta_x * x + (1 - delta_x) * x_mean)
+        x = mask * x + (1 - mask) * (delta_x * x_last_obsv + (1 - delta_x) * x_mean)
         h = delta_h * h
         
         combined = torch.cat((x, h, mask), 1)
         z = F.sigmoid(self.zl(combined))
         r = F.sigmoid(self.rl(combined))
-	combined_r = torch.cat((x, r * Hidden_State, mask), 1)
-        h_tilde = F.tanh(self.hl(combined_r))
+        h_tilde = F.tanh(self.hl(combined))
         h = (1 - z) * h + z * h_tilde
         
         return h
@@ -144,10 +143,11 @@ class GRUD(nn.Module):
         outputs = None
         for i in range(step_size):
             Hidden_State = self.step(torch.squeeze(X[:,i:i+1,:])\
+                                     , torch.squeeze(X_last_obsv[:,i:i+1,:])\
+                                     , torch.squeeze(self.X_mean[:,i:i+1,:])\
                                      , Hidden_State\
                                      , torch.squeeze(Mask[:,i:i+1,:])\
-                                     , torch.squeeze(Delta[:,i:i+1,:])\
-                                     , torch.squeeze(self.X_mean[:,i:i+1,:]))  
+                                     , torch.squeeze(Delta[:,i:i+1,:]))
             if outputs is None:
                 outputs = Hidden_State.unsqueeze(1)
             else:
@@ -166,4 +166,5 @@ class GRUD(nn.Module):
         else:
             Hidden_State = Variable(torch.zeros(batch_size, self.hidden_size))
             return Hidden_State
+        
         

@@ -61,13 +61,14 @@ def PrepareDataset(speed_matrix, \
 
         missing_index = np.where(Mask == 0)
 
-        X_last_obsv = speed_sequences
+        X_last_obsv = np.copy(speed_sequences)
         for idx in range(missing_index[0].shape[0]):
-            i = missing_index[0][idx]
+            i = missing_index[0][idx] 
             j = missing_index[1][idx]
             k = missing_index[2][idx]
+            if j != 0 and j != 9:
+                Delta[i,j+1,k] = Delta[i,j+1,k] + Delta[i,j,k]
             if j != 0:
-                Delta[i,j,k] = Delta[i,j,k] + Delta[i,j-1,k]
                 X_last_obsv[i,j,k] = X_last_obsv[i,j-1,k] # last observation
         Delta = Delta / Delta.max() # normalize
     
@@ -86,9 +87,9 @@ def PrepareDataset(speed_matrix, \
         Mask = Mask[index]
         Delta = Delta[index]
         speed_sequences = np.expand_dims(speed_sequences, axis=1)
-        X_last_obsv = np.expand_dims(X_last_obsv[index], axis=1)
-        Mask = np.expand_dims(Mask[index], axis=1)
-        Delta = np.expand_dims(Delta[index], axis=1)
+        X_last_obsv = np.expand_dims(X_last_obsv, axis=1)
+        Mask = np.expand_dims(Mask, axis=1)
+        Delta = np.expand_dims(Delta, axis=1)
         dataset_agger = np.concatenate((speed_sequences, X_last_obsv, Mask, Delta), axis = 1)
         
     train_index = int(np.floor(sample_size * train_propotion))
@@ -120,6 +121,8 @@ def PrepareDataset(speed_matrix, \
     print('Finished')
     
     return train_dataloader, valid_dataloader, test_dataloader, max_speed, X_mean
+
+
 
 def Train_Model(model, train_dataloader, valid_dataloader, num_epochs = 300, patience = 10, min_delta = 0.00001):
     
@@ -179,7 +182,7 @@ def Train_Model(model, train_dataloader, valid_dataloader, num_epochs = 300, pat
             outputs = model(inputs)
             
             if output_last:
-                loss_train = loss_MSE(outputs, labels)
+                loss_train = loss_MSE(torch.squeeze(outputs), torch.squeeze(labels))
             else:
                 full_labels = torch.cat((inputs[:,1:,:], labels), dim = 1)
                 loss_train = loss_MSE(outputs, full_labels)
@@ -210,7 +213,7 @@ def Train_Model(model, train_dataloader, valid_dataloader, num_epochs = 300, pat
             outputs_val = model(inputs_val)
             
             if output_last:
-                loss_valid = loss_MSE(outputs_val, labels_val)
+                loss_valid = loss_MSE(torch.squeeze(outputs_val), torch.squeeze(labels_val))
             else:
                 full_labels_val = torch.cat((inputs_val[:,1:,:], labels_val), dim = 1)
                 loss_valid = loss_MSE(outputs_val, full_labels_val)
@@ -221,8 +224,8 @@ def Train_Model(model, train_dataloader, valid_dataloader, num_epochs = 300, pat
             # output
             trained_number += 1
             
-        avg_losses_epoch_train = sum(losses_epoch_train).cpu().numpy()[0] / float(len(losses_epoch_train))
-        avg_losses_epoch_valid = sum(losses_epoch_valid).cpu().numpy()[0] / float(len(losses_epoch_valid))
+        avg_losses_epoch_train = sum(losses_epoch_train).cpu().numpy() / float(len(losses_epoch_train))
+        avg_losses_epoch_valid = sum(losses_epoch_valid).cpu().numpy() / float(len(losses_epoch_valid))
         losses_epochs_train.append(avg_losses_epoch_train)
         losses_epochs_valid.append(avg_losses_epoch_valid)
         
@@ -302,10 +305,10 @@ def Test_Model(model, test_dataloader, max_speed):
         loss_L1 = torch.nn.L1Loss()
         
         if output_last:
-            loss_mse = loss_MSE(outputs, labels)
-            loss_l1 = loss_L1(outputs, labels)
-            MAE = torch.mean(torch.abs(outputs - torch.squeeze(labels)))
-            MAPE = torch.mean(torch.abs(outputs - torch.squeeze(labels)) / torch.squeeze(labels))
+            loss_mse = loss_MSE(torch.squeeze(outputs), torch.squeeze(labels))
+            loss_l1 = loss_L1(torch.squeeze(outputs), torch.squeeze(labels))
+            MAE = torch.mean(torch.abs(torch.squeeze(outputs) - torch.squeeze(labels)))
+            MAPE = torch.mean(torch.abs(torch.squeeze(outputs) - torch.squeeze(labels)) / torch.squeeze(labels))
         else:
             loss_mse = loss_MSE(outputs[:,-1,:], labels)
             loss_l1 = loss_L1(outputs[:,-1,:], labels)
