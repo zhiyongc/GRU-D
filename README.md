@@ -5,7 +5,7 @@ This method can be used for dealing with time series with missing values, especi
 
 ### Environment
 * Python 3.6.1
-* PyTorch 0.3.0
+* PyTorch 0.4.1
 
 ### Cite
 ```
